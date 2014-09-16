@@ -96,6 +96,10 @@ Remember the Milk synchronization service is shipped with a library for RTM api.
 
 Remember the Milk is not maintained for a long time and might be potentially harmful.
 
+GitHub service has a dependancy:
+  * https://pypi.python.org/pypi/github3.py
+  install with: pip install github3.py
+
 ## Installing and Running
 
 To install GTG, either unpack the tarball:
