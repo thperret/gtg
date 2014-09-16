@@ -76,6 +76,10 @@ class ParametersUI(Gtk.Box):
                 "description": _("Username"),
                 "parameter_name": "username",
             })),
+            ("repository", self.UI_generator(TextUI, {
+                "description": _("Repository"),
+                "parameter_name": "repository",
+            })),
             ("password", self.UI_generator(PasswordUI)),
             ("period", self.UI_generator(PeriodUI)),
             ("service-url", self.UI_generator(TextUI, {
@@ -102,6 +106,10 @@ class ParametersUI(Gtk.Box):
                 "text": _("Tag your GTG tasks with the project "
                           "targeted by the bug"),
                 "parameter": "tag-with-project-name",
+            })),
+            ("group-tasks", self.UI_generator(CheckBoxUI, {
+                "text": _("Group tasks with a master task"),
+                "parameter": "group-tasks",
             })),
         )
 
