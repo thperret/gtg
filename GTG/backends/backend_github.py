@@ -23,18 +23,14 @@ Backend for importing GitHub issues in GTG
 
 import os
 import uuid
-import datetime
-from xdg.BaseDirectory import xdg_cache_home
-from github3 import repository, iter_repo_issues, GitHubError, issue as github_issue
+from github3 import repository, iter_repo_issues, GitHubError
 from dateutil.tz import tzutc, tzlocal
 
 from GTG.core.task import Task
 from GTG import _
 from GTG.backends.genericbackend import GenericBackend
-from GTG.backends.backendsignals import BackendSignals
 from GTG.backends.syncengine import SyncEngine, SyncMeme
 from GTG.tools.logger import Log
-from GTG.info import NAME as GTG_NAME
 from GTG.backends.periodicimportbackend import PeriodicImportBackend
 from GTG.tools.dates import Date
 
@@ -46,7 +42,7 @@ class Backend(PeriodicImportBackend):
         GenericBackend.BACKEND_NAME: "backend_github",
         GenericBackend.BACKEND_HUMAN_NAME: _("GitHub"),
         GenericBackend.BACKEND_AUTHORS: ["Thomas Perret"],
-        GenericBackend.BACKEND_TYPE: GenericBackend.TYPE_READONLY, # for now readonly
+        GenericBackend.BACKEND_TYPE: GenericBackend.TYPE_READONLY,
         GenericBackend.BACKEND_DESCRIPTION:
         _("This synchronization service lets you import the issues"
           " of a repository hosted on GitHub in GTG. As the"
@@ -226,7 +222,8 @@ class Backend(PeriodicImportBackend):
         if self._parameters["group-tasks"]:
             task.set_parent(self.master_tid)
         if issue_dic["completed"]:
-            task.set_status(Task.STA_DONE, donedate=Date(issue_dic["closed"].date()))
+            task.set_status(Task.STA_DONE,
+                            donedate=Date(issue_dic["closed"].date()))
         else:
             task.set_status(Task.STA_ACTIVE)
         if task.get_title() != issue_dic['title']:
@@ -276,11 +273,12 @@ class Backend(PeriodicImportBackend):
                    'milestone': issue.milestone}
         return issue_dic
 
-    def _tz_utc_to_local(self, dt):
-        if dt is not None:
-            dt = dt.replace(tzinfo=tzutc())
-            dt = dt.astimezone(tzlocal())
-            return dt.replace(tzinfo=None)
+    def _tz_utc_to_local(self, date):
+        """ Convert GitHub UTC date to local format """
+        if date is not None:
+            date = date.replace(tzinfo=tzutc())
+            date = date.astimezone(tzlocal())
+            return date.replace(tzinfo=None)
         else:
             return None
 
