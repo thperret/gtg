@@ -269,7 +269,7 @@ class Backend(PeriodicImportBackend):
                    'modified': self._tz_utc_to_local(issue.updated_at),
                    'owner_login': owner.login,
                    'owner_name': owner.name,
-                   'completed': issue.is_closed,
+                   'completed': issue.is_closed(),
                    'completed_by': issue.closed_by,
                    'status': issue.state,
                    'number': issue.number,
@@ -277,9 +277,12 @@ class Backend(PeriodicImportBackend):
         return issue_dic
 
     def _tz_utc_to_local(self, dt):
-        dt = dt.replace(tzinfo=tzutc())
-        dt = dt.astimezone(tzlocal())
-        return dt.replace(tzinfo=None)
+        if dt is not None:
+            dt = dt.replace(tzinfo=tzutc())
+            dt = dt.astimezone(tzlocal())
+            return dt.replace(tzinfo=None)
+        else:
+            return None
 
 #    def _tz_local_to_utc(self, dt):
 #        dt = dt.replace(tzinfo=tzlocal())
