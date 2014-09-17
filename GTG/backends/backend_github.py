@@ -29,7 +29,6 @@ from github3 import repository, iter_repo_issues, GitHubError, issue as github_i
 from dateutil.tz import tzutc, tzlocal
 
 from GTG.core.task import Task
-from GTG.tools.testingmode import TestingMode
 from GTG import _
 from GTG.backends.genericbackend import GenericBackend
 from GTG.backends.backendsignals import BackendSignals
@@ -95,7 +94,7 @@ class Backend(PeriodicImportBackend):
                                       "sync_engine-" + self.get_id())
         self.sync_engine = self._load_pickled_file(self.data_path,
                                                    SyncEngine())
-        self.master_task = None
+        self.master_tid = None
 
     def initialize(self):
         """
@@ -104,26 +103,24 @@ class Backend(PeriodicImportBackend):
         super(Backend, self).initialize()
         if self._parameters["group-tasks"]:
             try:
+                repo = repository(self._parameters["username"],
+                                  self._parameters["repository"])
+                master_url = repo.html_url
+            except GitHubError:
                 master_url = "https://github.com/%s/%s" % \
                         (self._parameters["username"],
                          self._parameters["repository"])
-                self.sync_engine.get_local_id(str(master_url))
-            except KeyError:
-                tid = str(uuid.uuid4())
-                master_task = self.datastore.task_factory(tid, True)
-                master_task.title = _("GitHub repository: ") + '%s/%s' % \
-                        (self._parameters["username"],
-                         self._parameters["repository"])
-                master_task.set_text(master_url)
-                self.sync_engine.record_relationship(local_id=tid,
-                                                remote_id=str(master_url),
-                                                meme=SyncMeme(
-                                                     None,
-                                                     None,
-                                                     self.get_id()))
-                self.datastore.push_task(master_task)
-                self.master_task = master_task.get_id()
 
+            master_tid = str(uuid.uuid5(namespace=uuid.NAMESPACE_URL,
+                             name=master_url))
+            if not self.datastore.has_task(master_tid):
+                master_task = self.datastore.task_factory(master_tid, True)
+                master_task.title = _("GitHub repository: ") + '%s/%s' % \
+                                        (self._parameters["username"],
+                                         self._parameters["repository"])
+                master_task.set_text(master_url)
+                self.datastore.push_task(master_task)
+            self.master_tid = master_tid
 
     def do_periodic_import(self):
         '''
@@ -156,7 +153,7 @@ class Backend(PeriodicImportBackend):
             # set
             with self.datastore.get_backend_mutex():
                 tid = self.sync_engine.get_local_id(issue_link)
-                if tid != self.master_task:
+                if tid != self.master_tid:
                     self.datastore.request_task_deletion(tid)
                 try:
                     self.sync_engine.break_relationship(remote_id=issue_link)
@@ -227,7 +224,7 @@ class Backend(PeriodicImportBackend):
         '''
         # set task status
         if self._parameters["group-tasks"]:
-            task.set_parent(self.master_task)
+            task.set_parent(self.master_tid)
         if issue_dic["completed"]:
             task.set_status(Task.STA_DONE, donedate=Date(issue_dic["closed"].date()))
         else:
