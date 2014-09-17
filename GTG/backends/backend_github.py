@@ -296,6 +296,7 @@ class Backend(PeriodicImportBackend):
         text += _("Link to issue: ") + \
             "%s" % \
             (issue_dic["self_link"]) + '\n'
+        text += _("Opened: ") + '%s' % issue_dic["opened"] + '\n'
         text += _("Last modified: ") + '%s' % issue_dic["modified"] + '\n'
         text += _("Milestone :") + '%s' % issue_dic["milestone"] + '\n'
         if issue_dic["text"] is not None:
