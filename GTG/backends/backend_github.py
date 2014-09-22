@@ -23,12 +23,15 @@ Backend for importing GitHub issues in GTG
 
 import os
 import uuid
-from github3 import repository, iter_repo_issues, GitHubError
+import time
+from github3 import (repository, iter_repo_issues,
+                    ratelimit_remaining, rate_limit)
 from dateutil.tz import tzutc, tzlocal
 
 from GTG.core.task import Task
 from GTG import _
 from GTG.backends.genericbackend import GenericBackend
+from GTG.backends.backendsignals import BackendSignals
 from GTG.backends.syncengine import SyncEngine, SyncMeme
 from GTG.tools.logger import Log
 from GTG.backends.periodicimportbackend import PeriodicImportBackend
@@ -98,11 +101,11 @@ class Backend(PeriodicImportBackend):
         """
         super(Backend, self).initialize()
         if self._parameters["group-tasks"]:
-            try:
+            if ratelimit_remaining() > 0:
                 repo = repository(self._parameters["username"],
                                   self._parameters["repository"])
                 master_url = repo.html_url
-            except GitHubError:
+            else:
                 master_url = "https://github.com/%s/%s" % \
                         (self._parameters["username"],
                          self._parameters["repository"])
@@ -127,12 +130,18 @@ class Backend(PeriodicImportBackend):
 
         # Fetching issues
         self.cancellation_point()
-        try:
+        if ratelimit_remaining() > 0:
             issues_tasks = iter_repo_issues(self._parameters["username"],
                                             self._parameters["repository"],
                                             state="all")
-        except GitHubError as msgerr:
-            Log.debug(msgerr)
+        else:
+            BackendSignals().interaction_requested(self.get_id(),
+                                                "GitHub API limit exceeded\n"
+                                                "Next reset at "+
+                                                self._limit_reset_time_remaining(),
+                                                BackendSignals(
+                                                ).INTERACTION_INFORM,
+                                                "")
             return
 
         # Adding and updating
@@ -286,6 +295,11 @@ class Backend(PeriodicImportBackend):
 #        dt = dt.replace(tzinfo=tzlocal())
 #        dt = dt.astimezone(tzutc())
 #        return dt.replace(tzinfo=None)
+
+    def _limit_reset_time_remaining(self):
+        """ Convert GitHub reset limit unix EPOCH time to date """
+        reset_time = rate_limit()["rate"]["reset"]
+        return time.strftime('%H:%M:%S', time.localtime(reset_time))
 
     def _build_bug_text(self, issue_dic):
         '''
