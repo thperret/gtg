@@ -24,9 +24,11 @@ Backend for importing GitHub issues in GTG
 import os
 import uuid
 import time
+from dateutil.tz import tzutc, tzlocal
+from requests import ConnectionError
+
 from github3 import (repository, iter_repo_issues,
                     ratelimit_remaining, rate_limit)
-from dateutil.tz import tzutc, tzlocal
 
 from GTG.core.task import Task
 from GTG import _
@@ -101,17 +103,21 @@ class Backend(PeriodicImportBackend):
         """
         super(Backend, self).initialize()
         if self._parameters["group-tasks"]:
-            if ratelimit_remaining() > 0:
-                repo = repository(self._parameters["username"],
+            try:
+                if ratelimit_remaining() > 0:
+                    repo = repository(self._parameters["username"],
                                   self._parameters["repository"])
-                master_url = repo.html_url
-            else:
+                    master_url = repo.html_url
+            except ConnectionError:
+                BackendSignals().backend_failed(self.get_id(),
+                                                BackendSignals.ERRNO_NETWORK)
                 master_url = "https://github.com/%s/%s" % \
                         (self._parameters["username"],
                          self._parameters["repository"])
 
             master_tid = str(uuid.uuid5(namespace=uuid.NAMESPACE_URL,
                              name=master_url))
+
             if not self.datastore.has_task(master_tid):
                 master_task = self.datastore.task_factory(master_tid, True)
                 master_task.title = _("GitHub repository: ") + '%s/%s' % \
@@ -130,18 +136,23 @@ class Backend(PeriodicImportBackend):
 
         # Fetching issues
         self.cancellation_point()
-        if ratelimit_remaining() > 0:
-            issues_tasks = iter_repo_issues(self._parameters["username"],
-                                            self._parameters["repository"],
-                                            state="all")
-        else:
-            BackendSignals().interaction_requested(self.get_id(),
-                                                "GitHub API limit exceeded\n"
-                                                "Next reset at "+
-                                                self._limit_reset_time_remaining(),
-                                                BackendSignals(
-                                                ).INTERACTION_INFORM,
-                                                "")
+        try:
+            if ratelimit_remaining() > 0:
+                issues_tasks = iter_repo_issues(self._parameters["username"],
+                                                self._parameters["repository"],
+                                                state="all", direction="asc")
+            else:
+                BackendSignals().interaction_requested(self.get_id(),
+                                            "GitHub API limit exceeded\n"
+                                            "Next reset at "+
+                                            self._limit_reset_time_remaining(),
+                                            BackendSignals(
+                                            ).INTERACTION_INFORM,
+                                            "")
+                return
+        except ConnectionError:
+            BackendSignals().backend_failed(self.get_id(),
+                                            BackendSignals.ERRNO_NETWORK)
             return
 
         # Adding and updating
@@ -274,6 +285,7 @@ class Backend(PeriodicImportBackend):
                    'closed': self._tz_utc_to_local(issue.closed_at),
                    'modified': self._tz_utc_to_local(issue.updated_at),
                    'owner_login': owner.login,
+                   'assignee_login': getattr(issue.assignee, "login", None),
                    'owner_name': owner.name,
                    'completed': issue.is_closed(),
                    'completed_by': issue.closed_by,
@@ -312,6 +324,7 @@ class Backend(PeriodicImportBackend):
             (issue_dic["self_link"]) + '\n'
         text += _("Opened: ") + '%s' % issue_dic["opened"] + '\n'
         text += _("Last modified: ") + '%s' % issue_dic["modified"] + '\n'
+        text += _("Assigned to :") + '%s' % issue_dic["assignee_login"] + '\n'
         text += _("Milestone :") + '%s' % issue_dic["milestone"] + '\n'
         if issue_dic["text"] is not None:
             text += '\n' + issue_dic["text"]
