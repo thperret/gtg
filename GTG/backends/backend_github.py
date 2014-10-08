@@ -79,6 +79,9 @@ class Backend(PeriodicImportBackend):
         "group-tasks": {
             GenericBackend.PARAM_TYPE: GenericBackend.TYPE_BOOL,
             GenericBackend.PARAM_DEFAULT_VALUE: True},
+        "ignore-pr": {
+            GenericBackend.PARAM_TYPE: GenericBackend.TYPE_BOOL,
+            GenericBackend.PARAM_DEFAULT_VALUE: True},
     }
 
 ###############################################################################
@@ -158,7 +161,11 @@ class Backend(PeriodicImportBackend):
         # Adding and updating
         for issue in issues_tasks:
             self.cancellation_point()
-            self._process_github_issue(issue)
+            if issue.pull_request is not None:
+                if not self._parameters["ignore-pr"]:
+                    self._process_github_issue(issue)
+            else:
+                self._process_github_issue(issue)
 
         # removing the old ones
         last_issue_list = self.sync_engine.get_all_remote()

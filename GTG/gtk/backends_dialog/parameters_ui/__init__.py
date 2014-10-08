@@ -111,6 +111,10 @@ class ParametersUI(Gtk.Box):
                 "text": _("Group tasks with a master task"),
                 "parameter": "group-tasks",
             })),
+            ("ignore-pr", self.UI_generator(CheckBoxUI, {
+                "text": _("Ignore pull requests"),
+                "parameter": "ignore-pr",
+            })),
         )
 
     def UI_generator(self, param_type, special_arguments={}):
