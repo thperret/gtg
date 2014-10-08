@@ -60,7 +60,8 @@ class Backend(PeriodicImportBackend):
           "  - description\n"
           "  - tags\n"
           "Your changes <b>will</b> be reverted when the associated"
-          " bug is modified."),
+          " bug is modified.\nPlease also note that GitHub limits "
+          "number of API access so you should not check for changes to often."),
     }
 
     _static_parameters = {
@@ -72,7 +73,7 @@ class Backend(PeriodicImportBackend):
             GenericBackend.PARAM_DEFAULT_VALUE: "insert the repository here"},
         "period": {
             GenericBackend.PARAM_TYPE: GenericBackend.TYPE_INT,
-            GenericBackend.PARAM_DEFAULT_VALUE: 10, },
+            GenericBackend.PARAM_DEFAULT_VALUE: 30, },
         "import-bug-tags": {
             GenericBackend.PARAM_TYPE: GenericBackend.TYPE_BOOL,
             GenericBackend.PARAM_DEFAULT_VALUE: True},
